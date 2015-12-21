@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ 
+<mapper namespace="Group">
+   <resultMap type="group" id="groupMapForDetail">
+      <result property="gno" column="gno"/>
+      <result property="title" column="title"/>
+      <result property="content" column="content"/>
+      <result property="category" column="category"/>
+      <result property="promiseDate" column="promise_date"/>
+      <result property="sexCheck" column="sex_check"/>
+      <result property="currentNum" column="current_num"/>
+      <result property="maxNum" column="max_num"/>
+      <result property="status" column="status"/>
+      <result property="memberDTO.id" column="writer"/>
+      <result property="fileName" column="filename"/>
+      <result property="latitude" column="latitude"/>
+      <result property="longitude" column="longitude"/>
+      <result property="promiseAddr" column="promise_addr"/>
+   </resultMap>
+   
+   <resultMap type="group" id="groupMapForList">
+      <result property="gno" column="gno"/>
+      <result property="title" column="title"/>
+      <result property="category" column="category"/>
+      <result property="promiseDate" column="promise_date"/>
+      <result property="sexCheck" column="sex_check"/>
+      <result property="currentNum" column="current_num"/>
+      <result property="maxNum" column="max_num"/>
+      <result property="status" column="status"/>
+      <result property="memberDTO.id" column="writer"/>
+      <result property="fileName" column="filename"/>
+   </resultMap>
+   
+   <resultMap type="group" id="groupMapForThread">
+      <result property="gno" column="gno"/>
+      <result property="promiseDate" column="promise_date"/>
+      <result property="currentNum" column="current_num"/>
+      <result property="maxNum" column="max_num"/>
+      <result property="status" column="status"/>
+   </resultMap>
+
+   <!-- 모임 등록 -->
+   <insert id="groupPost" parameterType="group">
+      <selectKey keyProperty="gno" resultType="_int" order="BEFORE">
+         SELECT groups_seq.nextVal FROM dual
+      </selectKey>
+      INSERT INTO 
+         groups(gno, title, content, category, promise_date, sex_check,
+               current_num, max_num, status, writer, filename, latitude, longitude, promise_addr)
+      VALUES
+         (#{gno}, #{title}, #{content}, #{category}, #{promiseDate}, #{sexCheck},
+          1, #{maxNum}, 0, #{memberDTO.id}, #{fileName}, #{latitude}, #{longitude}, #{promiseAddr})
+   </insert>
+   
+   <!-- 모임 리스트 -->
+   <select id="groupList" parameterType="hashmap" resultMap="groupMapForList">
+      SELECT gno, title, category, promise_date, sex_check, current_num, max_num, status, writer, filename
+      FROM (SELECT gno, title, category, promise_date, sex_check, current_num, max_num, status, writer, filename, CEIL(rownum/5) AS page
+      		FROM (SELECT gno, title, category, to_char(promise_date, 'YYYY.MM.DD') as promise_date, sex_check, current_num, max_num, status, writer, filename
+				  FROM groups 
+				  <where>
+				  	  <if test="category!=null">
+			            	category=#{category} 
+			          </if>
+				  </where> 
+				  ORDER BY gno DESC)) 
+      WHERE page=#{pageNo}
+   </select>
+   
+   <!-- 모임 index 리스트 -->
+   <select id="indexGroupList" resultMap="groupMapForList">
+		SELECT gno, title, category, to_char(promise_date,'YYYY.MM.DD') as promise_date, sex_check, current_num, max_num, status, writer, filename
+		FROM groups
+		WHERE status = 0
+		ORDER BY gno
+   </select>
+   
+	<!-- 모임 상세보기 -->
+	<select id="groupShowDetail" resultMap="groupMapForDetail" parameterType="_int">
+	   SELECT gno, title, content, category, to_char(promise_date,'YYYY.MM.DD') as promise_date, sex_check, current_num, 
+	   		 max_num, status, writer, filename, latitude, longitude, promise_addr
+	   FROM groups
+	   WHERE gno=#{gno}
+	</select>
+   
+	<!-- 모임 참가 -->
+	<insert id="groupJoin" parameterType="hashmap">
+	   INSERT INTO member_groups(gno, id)
+	   VALUES(#{gno}, #{id})
+	</insert>
+   	
+	<!-- Group 취소하기 -->
+	<delete id="groupLeave" parameterType="hashmap">
+		DELETE FROM member_groups
+		WHERE gno=#{gno} AND id=#{id}
+	</delete>
+   
+   <!-- 참가 모임 목록 :: 해당 회원이 이미 모임에 참여했는지의 여부를 확인하고 마지막에 발송할 때 사용하기 위한 Query문. -->
+   <!-- 만약 해당 모임 번호에 내 아이디가 있는 레코드가 있다면 값을 리턴할 것이고 그 경우는 참가할 수 없도록 한다. -->
+   <select id="checkGroupJoined" parameterType="hashmap" resultType="hashmap">
+      SELECT id, gno
+      FROM member_groups
+      WHERE id=#{id} AND gno=#{gno}
+   </select>
+   
+   
+   <!-- Member_groups에 작성자가 작성함과 동시에 자신을 포함시키기 위해서는 작성한 게시글의 gno를 가져올 필요가 있다. -->
+   <!-- 그를 위해서 추가한 Query문. -->
+   <select id="getMyGroup" parameterType="string" resultMap="groupMapForDetail">
+      SELECT gno, title, content, category, 
+            to_char(promise_date,'YYYY.MM.DD') as promise_date, sex_check, current_num, 
+            max_num, status, writer, filename
+      FROM (SELECT * FROM groups WHERE writer=#{value} ORDER BY gno DESC)
+      WHERE rownum &lt;= 1
+      ORDER BY gno DESC
+   </select>
+   <!-- 추가 -->
+   
+   <!-- 그룹 수정 -->
+   	<update id="groupUpdate" parameterType="group">
+   		UPDATE groups 
+   		SET title=#{title}, content=#{content}, category=#{category}, sex_check=#{sexCheck}, filename=#{fileName},
+   			current_num=#{currentNum}, latitude=#{latitude}, longitude=#{longitude}, promise_addr=#{promiseAddr}
+   		WHERE gno=#{gno}
+   	</update> 
+   	
+   	<!-- 현재 그룹 가져오기 :: 불필요한 Query - 똑같은 쿼리가 존재함. showDetail로 대체 가능 -->
+   	<select id="getJoinedGroupByGno" parameterType="_int" resultMap="groupMapForDetail">
+		SELECT gno, title, content, category, to_char(promise_date,'YYYY.MM.DD') as promise_date, sex_check, 
+			   current_num, max_num, status, writer, filename, latitude, longitude
+		FROM groups
+		WHERE gno=#{gno}
+   	</select>
+   	
+   	<!-- 쓰레드에서 마지막 날짜로 status 넣기 위한 Query. -->
+   	<select id="getGroupInLastDate" resultMap="groupMapForThread">
+   		<![CDATA[
+		SELECT gno, promise_date, current_num, max_num, status
+		FROM groups
+		WHERE promise_date <= SYSDATE-1
+		]]>
+   	</select>
+   	
+   	<!-- status 수정하는 Query -->
+   	<update id="updateStatus" parameterType="hashmap">
+   		UPDATE groups
+   		<set>
+   		 	<if test="status != null">status=#{status},</if>
+   		 	<if test="status == -1">current_num=0</if>
+   		</set>
+   		WHERE gno=#{gno}
+   	</update>
+   	
+   	<!-- 11/30 그룹 참가 및 탈퇴를 할 수 있는 Query -->
+   	<update id="increaseCurrentNum" parameterType="_int">
+   		UPDATE groups
+		SET current_num = current_num + 1
+   		WHERE gno = #{gno}
+   	</update>
+   	<update id="decreaseCurrentNum" parameterType="_int">
+   		UPDATE groups
+   		SET current_num = current_num - 1
+   		WHERE gno = #{gno}
+   	</update>
+   	
+   	<!-- ///////////////////////////////// member_groups //////////////////////////////// -->
+   	<!-- 현재 참가 중인 인원 -->
+   	<select id="getMemberGroupByGno" resultType="string" parameterType="_int">
+   		SELECT id
+   		FROM member_groups
+   		WHERE gno=#{gno}
+   	</select>
+   	
+   	<!-- gno를 통해서 id를 모두 가져와야 member_groups의 값을 모두 비울 수 있다. -->
+   	<delete id="groupCancel" parameterType="_int">
+   		DELETE FROM member_groups
+   		WHERE gno=#{gno}
+   	</delete>
+   	
+   	<!-- 12.10 추가수정 -->
+   	<select id="myJoinedGroup" parameterType="hashmap" resultType="string">
+   		SELECT gno
+   		FROM (SELECT gno, CEIL(rownum/5) AS page
+   			  FROM (SELECT gno
+   			  		FROM member_groups
+   			  		<where>
+		  				<if test="id != null">
+		  					id = #{id}
+		  				</if>
+		  			</where>
+		  			ORDER BY gno DESC))
+		WHERE page=#{pageNo}
+   	</select>
+   	
+   	<!-- 추가 : 12.07 -->
+   	<select id="totalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM groups
+		<where>
+			<if test="value != null">
+				category=#{value} 
+			</if>
+		</where>  
+	</select>
+	
+	<!-- 12.10 추가 -->
+	<select id="myTotalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM member_groups
+		<where>
+			<if test="value != null">
+				id=#{id} 
+			</if>
+		</where>  
+	</select>
+</mapper>

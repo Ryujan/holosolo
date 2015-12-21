@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="Content">
+	<resultMap type="content" id="contentMap">
+		<result property="cno" column="cno" />
+		<result property="title" column="title" />
+		<result property="content" column="content" />
+		<result property="category" column="category" />
+		<result property="postedTime" column="posted_time" />
+		<result property="hits" column="hits" />
+		<result property="memberDTO.id" column="writer" />
+		<result property="fileName" column="filename" />
+	</resultMap>
+
+	<!-- 컨텐츠 등록 -->
+	<insert id="contentPost" parameterType="content">
+		<selectKey keyProperty="cno" resultType="_int" order="BEFORE">
+			SELECT
+			contents_seq.nextVal FROM dual
+		</selectKey>
+		INSERT INTO contents (cno, title, content, category, posted_time,
+		hits, writer, filename)
+		VALUES (#{cno}, #{title}, #{content},
+		#{category}, SYSDATE, #{hits}, #{memberDTO.id}, #{fileName})
+	</insert>
+
+	<!-- ver 5 수정 -->
+	<!-- 컨텐츠 카테고리별 목록 가져오기 -->
+	<select id="contentList" parameterType="hashmap" resultMap="contentMap">
+		SELECT cno, title, category, posted_time, hits, writer, filename
+		FROM (SELECT cno, title, category, posted_time, hits, writer, filename, CEIL(rownum/9) AS page
+			  FROM (SELECT cno, title, category, to_char(posted_time, 'YYYY.MM.DD') AS posted_time, hits, writer, filename
+			  		FROM contents	
+					<where>
+						<if test="category != null">
+							category = #{category}
+						</if>
+					</where>
+					ORDER BY cno DESC))
+		WHERE page=#{pageNo}
+	</select>
+
+	<!-- 컨텐츠 상세보기 -->
+	<select id="contentShowDetail" parameterType="_int" resultMap="contentMap">
+		SELECT cno, title, content, category, to_char(posted_time,'YYYY.MM.DD') as posted_time, hits, writer,
+		filename
+		FROM contents
+		WHERE cno = #{value}
+	</select>
+	
+	<!-- 컨텐츠 추천 -->
+	<insert id="contentRecommend" parameterType="hashmap">
+		INSERT INTO
+		recommend_contents(id, cno)
+		VALUES (#{id}, #{cno})
+	</insert>
+	
+	<!-- 컨텐츠 추천 수 -->
+	<select id="contentRecommendCount" parameterType="string" resultType="string">
+		SELECT id
+		FROM recommend_contents
+		WHERE cno = #{value}
+	</select>
+	
+	<!-- ver 5 수정-->
+	<!-- 12.10 추가수정 -->
+	<!-- 컨텐츠 카테고리 & 단어로 검색 -->
+	<select id="contentSearch" parameterType="hashmap" resultMap="contentMap">
+		SELECT cno, title, content, category, posted_time, hits, writer, filename
+		FROM (SELECT cno, title, content, category, posted_time, hits, writer, filename, CEIL(rownum/9) AS page
+			  FROM (SELECT cno, title, content, category, to_char(posted_time, 'YYYY.MM.DD') AS posted_time,hits, writer, filename
+			  		FROM contents
+			  		<where>
+						<if test="category != null">
+							category LIKE #{category} AND
+						</if>
+						<if test="word != null">
+							<if test="sort == 'content'">   <!-- 내용으로 검색 -->
+								content LIKE '%' || #{word} || '%'
+							</if>
+							<if test="sort == 'writer'">   <!-- 작성자로 검색 -->
+								writer LIKE #{word}
+							</if>
+							<if test="sort == 'title'">   <!-- 제목으로 검색 -->
+								title LIKE  '%' || #{word} || '%'
+							</if>
+						</if>
+					</where>
+					ORDER BY cno DESC))
+		WHERE page = #{pageNo}
+	</select>
+
+	<!-- ver 5 category 추가 -->
+	<!-- 컨텐츠 수정 -->
+	<update id="contentUpdate" parameterType="content">
+		UPDATE contents SET
+		title=#{title}, content=#{content}, filename=#{fileName}, category=#{category}
+		WHERE
+		cno=#{cno}
+	</update>
+	<!-- 컨텐츠 삭제 -->
+	<delete id="contentDelete" parameterType="int">
+		DELETE FROM contents
+		WHERE cno=#{value}
+	</delete>
+	
+	<!-- hits 증가 쿼리문 -->
+   <update id="updateHits" parameterType="_int">
+      UPDATE contents
+      SET hits = hits + 1
+      WHERE cno=#{value}
+   </update>
+
+	<!-- 추가 :: 12월 03일 목요일 -->
+   <select id="getCListByRecommend" parameterType="string" resultType="string">
+    	SELECT cno
+		FROM (SELECT cno, CEIL(rownum/9) AS page
+			  FROM (SELECT cno
+					FROM recommend_contents
+					<where>
+						<if test="id != null">
+							id = #{id}
+						</if>
+					</where>
+					ORDER BY cno DESC))
+		WHERE page=#{pageNo}
+   </select>
+		
+  	<select id="contentByCno" parameterType="_int" resultMap="contentMap">
+		SELECT cno, title, content, category,  to_char(posted_time,'YYYY.MM.DD') as posted_time, hits, writer, filename
+		FROM contents
+		WHERE cno = #{value}
+	</select>
+	
+	
+	<!-- ver 5  추가 -->
+	 <!-- 추가 : 12.07 -->
+   	<select id="totalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM contents
+		<where>
+			<if test="value != null">
+				category=#{value} 
+			</if>
+		</where>  
+	</select>
+	
+	<!-- 추가 -->
+	<select id="showContentListInDetail" parameterType="string" resultMap="contentMap">
+		SELECT cno, title, category, posted_time, hits, writer, filename
+		FROM contents	
+		<where>
+			<if test="value != null">
+				category = #{value}
+			</if>
+		</where>
+		ORDER BY cno DESC
+	</select>
+	
+	<!-- 12.10 추가 -->
+	<select id="searchTotalCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(-1) 
+		FROM contents
+		<where>
+			<if test="category != null">
+				category LIKE #{category} AND
+			</if>
+			<if test="word != null">
+				<if test="sort == 'content'">   <!-- 내용으로 검색 -->
+					content LIKE '%' || #{word} || '%'
+				</if>
+				<if test="sort == 'writer'">   <!-- 작성자로 검색 -->
+					writer LIKE #{word}
+				</if>
+				<if test="sort == 'title'">   <!-- 제목으로 검색 -->
+					title LIKE  '%' || #{word} || '%'
+				</if>
+			</if>
+		</where>
+	</select>
+	
+	<select id="myRecommandTotalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM recommend_contents
+		<where>
+			<if test="value != null">
+				id=#{value} 
+			</if>
+		</where>  
+	</select>
+</mapper>

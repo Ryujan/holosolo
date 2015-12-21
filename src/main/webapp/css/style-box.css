@@ -1,0 +1,13 @@
+/*body { background: url(images/egg_shell.png), no-repeat; }*/
+#page {	background-color: #fff; }
+@media (min-width: 1200px) {
+	#page {	width: 1170px; 	margin: 0 auto;	}
+	#wide #page, .page-template-home-page4 #page {	width: 100%; 	margin: 0 auto;	border-left: 0px solid #ccc; border-right: 0px solid #ccc; border-bottom: 0px solid #ccc; }
+	.container-fluid.wide-layout, #narrow .container { width: 1100px !important; }
+	.container-fluid.wide-layout .thumbs.col-md-3 { width:25% !important; }
+	.page-template-home-page4 #front-contact .code-block { margin: 0 15px; }
+}
+@media (min-width: 1400px) {
+	.container-fluid.wide-layout { width: 1168px !important; }
+	.container-fluid.wide-layout .thumbs.col-md-3 { width:25% !important; }
+}

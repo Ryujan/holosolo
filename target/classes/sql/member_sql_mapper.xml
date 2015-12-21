@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+ 
+<mapper namespace="Member">
+	<resultMap type="member" id="memberMap">
+		<result property="id" column="id"/>
+		<result property="password" column="password"/>
+		<result property="name" column="name"/>
+		<result property="sex" column="sex"/>
+		<result property="email" column="email"/>
+		<result property="authority" column="authority"/>
+		<result property="myPhoto" column="my_photo"/>
+	</resultMap>
+	
+	<resultMap type="member" id="memberMapById">
+      <result property="id" column="id"/>
+      <result property="name" column="name"/>
+      <result property="sex" column="sex"/>
+      <result property="email" column="email"/>
+      <result property="myPhoto" column="my_photo"/>
+   </resultMap>
+	
+	<!-- 회원 등록 -->
+	<insert id="memberRegister" parameterType="member">
+		INSERT INTO member(id, password, name, sex, email, authority, my_photo)
+		VALUES(#{id}, #{password}, #{name}, #{sex}, #{email}, #{authority}, #{myPhoto})
+	</insert>
+	
+	<!-- 회원정보 수정 -->
+	<update id="memberUpdate" parameterType="member">
+		UPDATE member
+		SET password=#{password}, email=#{email}
+		WHERE id=#{id}
+	</update>
+	
+	<!-- 회원 삭제 -->
+	<delete id="memberDelete" parameterType="member">
+		DELETE FROM member
+		WHERE id=#{id} AND password=#{password}
+	</delete>
+		
+	<!-- 로그인 -->
+	<select id="login" parameterType="member" resultMap="memberMap">
+		SELECT id, password, name, sex, email, authority, my_photo
+		FROM member
+		WHERE id=#{id} AND password=#{password}
+	</select>
+	
+	<!-- 단위테스트때문에 넣어놨음 -->
+	<select id="memberList" resultMap="memberMap">
+		SELECT id, password, name, sex, email, authority
+		FROM member
+	</select>
+	
+	<!-- id 중복 체크 -->
+	<select id="idCheck" resultType="string" parameterType="string">
+		SELECT id FROM member WHERE id=#{value}
+	</select>
+	
+	<!-- 특정회원 :: DAO와 IMPL에 굳이 추가할 필요가 없다. -->
+	<select id="getMemberById" resultMap="memberMapById" parameterType="string">
+		SELECT id, name, sex, email, my_photo
+		FROM member
+		WHERE id=#{value}
+	</select>
+	
+	<!-- 추가 프로필 사진 변경 -->
+	<update id="myPhotoUpdate" parameterType="hashmap">
+		UPDATE member
+		SET my_photo = #{myPhoto}
+		WHERE id = #{id}
+	</update>
+	
+	<!-- 추가 :: 12월 04일 이름과 아이디로 패스워드를 찾기 위해서. -->
+   <select id="findPassword" parameterType="hashmap" resultMap="memberMap">
+      SELECT id, password, name, sex, email, authority, my_photo
+      FROM member
+      WHERE id=#{id} AND name=#{name}
+   </select>
+</mapper>

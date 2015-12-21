@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="GroupComment">
+	<resultMap type="g_comment" id="groupCommentMap">
+		<result property="rno" column="rno" />
+		<result property="reply" column="reply" />
+		<result property="postedTime" column="posted_time" />
+		<result property="gno" column="gno"/>
+		<result property="memberDTO.id" column="writer" />
+	</resultMap>
+	
+	<!-- 그룹 댓글 등록 -->
+	<insert id="groupCommentWrite" parameterType="g_comment">
+		<selectKey keyProperty="rno" resultType="int" order="BEFORE">
+			SELECT groups_comment_seq.nextVal FROM dual
+		</selectKey>
+		INSERT INTO groups_comment(rno, reply, posted_time, gno, writer)
+		VALUES(#{rno}, #{reply}, SYSDATE, #{gno}, #{memberDTO.id})
+	</insert>
+
+	<!-- 그룹 댓글 삭제 -->
+	<delete id="groupCommentDelete" parameterType="_int">
+		DELETE FROM groups_comment
+		WHERE rno=#{value}
+	</delete>
+
+	<!-- 그룹 댓글 페이지로 전체보기 -->
+	<select id="groupCommentList" resultMap="groupCommentMap" parameterType="hashmap">
+		SELECT rno, reply, posted_time, gno, writer
+		FROM (SELECT rno, reply, to_char(posted_time,'YYYY.MM.DD') as posted_time, gno, writer, CEIL(rownum/9) page
+			  FROM (SELECT rno, reply, posted_time, gno, writer
+			  		FROM groups_comment
+					WHERE gno = #{gno}
+					ORDER BY rno DESC))
+		WHERE page = #{replyPageNo}
+	</select>
+	
+	<!-- 그룹 댓글 총 갯수를 가져오기 위한 쿼리문 -->
+	<select id="totalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM groups_comment
+		WHERE gno=#{value}
+	</select>
+	
+</mapper>

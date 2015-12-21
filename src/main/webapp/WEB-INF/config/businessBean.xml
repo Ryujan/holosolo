@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.1.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.1.xsd">
+
+	<!-- dataSource, Mybatis(SqlSessinoFactory, SqlSessionTemplate) -->
+	<context:property-placeholder location="classpath:config/jdbc.properties"/>
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="${JDBC.Driver}"/>
+		<property name="url" value="${JDBC.ConnectionUrl}"/>
+		<property name="username" value="${JDBC.Username}"/>
+		<property name="password" value="${JDBC.Password}"/>
+	</bean>
+	
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="configLocation" value="classpath:config/sqlMapConfig.xml"/>
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+	<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+		<constructor-arg ref="sqlSessionFactory"/>
+	</bean>
+	
+	<!-- User Definition Beans :: DAOS & SERVICES -->
+	<!-- Member -->
+	<bean id="memberDAO" class="team.project.holosolo.model.dao.impl.MemberDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="memberService" class="team.project.holosolo.model.service.impl.MemberServiceImpl">
+		<property name="memberDAO" ref="memberDAO"/>
+	</bean>
+	
+	<!-- ShareTip & Comments -->
+	<bean id="shareTipDAO" class="team.project.holosolo.model.dao.impl.ShareTipDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="shareTipService" class="team.project.holosolo.model.service.impl.ShareTipServiceImpl">
+		<property name="shareTipDAO" ref="shareTipDAO"/>
+		<property name="numberOfContentPerPage" value="10"/>
+		<property name="numberOfPageGroup" value="4"/>
+	</bean>
+	<bean id="shareTipCommentDAO" class="team.project.holosolo.model.dao.impl.ShareTipCommentDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="shareTipCommentService" class="team.project.holosolo.model.service.impl.ShareTipCommentServiceImpl">
+		<property name="shareTipCommentDAO" ref="shareTipCommentDAO"/>
+		<property name="numberOfCommentsPerPage" value="9"/>
+		<property name="numberOfPageGroup" value="4"/>
+	</bean>
+	
+	<!-- Content & Comments -->
+	<bean id="contentDAO" class="team.project.holosolo.model.dao.impl.ContentDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="contentService" class="team.project.holosolo.model.service.impl.ContentServiceImpl">
+		<property name="contentDAO" ref="contentDAO"/>
+		<property name="numberOfContentPerPage" value="9"/>
+		<property name="numberOfPageGroup" value="4"/>
+	</bean>
+	<bean id="contentCommentDAO" class="team.project.holosolo.model.dao.impl.ContentCommentDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="contentCommentService" class="team.project.holosolo.model.service.impl.ContentCommentServiceImpl">
+		<property name="contentCommentDAO" ref="contentCommentDAO"/>
+		<property name="numberOfCommentsPerPage" value="9"/>
+		<property name="numberOfPageGroup" value="4"/>
+	</bean>
+	
+	<!-- Group & Comments -->
+	<bean id="groupDAO" class="team.project.holosolo.model.dao.impl.GroupDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="groupService" class="team.project.holosolo.model.service.impl.GroupServiceImpl">
+		<property name="groupDAO" ref="groupDAO"/>
+		<property name="numberOfContentPerPage" value="5"/>
+		<property name="numberOfPageGroup" value="4"/>
+	</bean>
+	<bean id="groupCommentDAO" class="team.project.holosolo.model.dao.impl.GroupCommentDAOImpl">
+		<property name="sqlSession" ref="sqlSession"/>
+	</bean>
+	<bean id="groupCommentService" class="team.project.holosolo.model.service.impl.GroupCommentServiceImpl">
+		<property name="groupCommentDAO" ref="groupCommentDAO"/>
+		<property name="numberOfCommentsPerPage" value="9"/>
+		<property name="numberOfPageGroup" value="4"/>
+	</bean>
+	
+	<!-- AOP -->
+   <!-- 실제 호출되는 이름과 매칭이 될 경우만 사용한다. 하나의 Aspect로 모든 Service의 조회수 증가를 컨트롤 하기 위해서. -->
+   <bean id="hitsAspect" class="team.project.holosolo.advice.HitsAspect">
+      <property name="contentService" ref="contentService"/>
+      <property name="shareTipService" ref="shareTipService"/>
+   </bean>
+   
+   <aop:config>
+      <aop:aspect id="hitsAdvice" ref="hitsAspect">
+         <aop:pointcut expression="execution(public * team.project.holosolo.model.dao.impl.*DAOImpl.*ShowDetail(*))" id="aroundPointCut"/>
+         <aop:around method="hitsUp" pointcut-ref="aroundPointCut"/>
+      </aop:aspect>
+   </aop:config>
+</beans>

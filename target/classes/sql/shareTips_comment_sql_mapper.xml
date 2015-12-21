@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ShareTipComment">
+	<resultMap type="s_comment" id="shareTipMap">
+		<result property="rno" column="rno"/>
+		<result property="reply" column="reply"/>
+		<result property="postedTime" column="posted_time"/>
+		<result property="sno" column="sno"/>
+		<result property="memberDTO.id" column="writer"/>
+	</resultMap>
+
+	<!-- shareTip 댓글 달기  -->
+	<insert id="shareCommentWrite" parameterType="s_comment">
+		<selectKey keyProperty="rno" resultType="_int" order="BEFORE">
+			SELECT sharetips_comment_seq.nextVal FROM dual
+		</selectKey>
+		INSERT INTO sharetips_comment(rno, reply, posted_time, sno, writer)
+		VALUES
+			(#{rno}, #{reply}, SYSDATE, #{sno}, #{memberDTO.id})
+	</insert>
+
+	<!-- shareTip 댓글 삭제  -->
+	<delete id="shareCommentDelete" parameterType="_int">
+		DELETE FROM sharetips_comment
+		WHERE rno=#{value}
+	</delete>
+	
+	<!-- shareTip 게시물별 댓글 리스트 -->
+	<select id="shareCommentList" resultMap="shareTipMap" parameterType="hashmap">
+		SELECT rno, reply, to_char(posted_time,'YYYY.MM.DD') as posted_time, writer, sno
+		FROM (SELECT rno, reply, posted_time, sno, writer, CEIL(rownum/9) page
+			  FROM (SELECT rno, reply, posted_time, sno, writer
+			  		FROM sharetips_comment
+					WHERE sno = #{sno}
+					ORDER BY rno DESC))
+		WHERE page = #{replyPageNo}
+	</select>
+	
+	<!-- 컨텐츠 댓글 총 갯수를 가져오기 위한 쿼리문 -->
+	<select id="totalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM sharetips_comment
+		WHERE sno=#{value}
+	</select>
+	
+	<!-- hits 감소 쿼리문 -->
+	<update id="decreaseHits" parameterType="_int">
+		UPDATE sharetips
+		SET hits = hits - 1
+		WHERE sno=#{value}
+	</update>
+</mapper>

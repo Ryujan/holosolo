@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ContentComment">
+	<resultMap type="c_comment" id="contentListMap">
+		<result property="rno" column="rno" />
+		<result property="reply" column="reply" />
+		<result property="postedTime" column="posted_time" />
+		<result property="cno" column="cno"/>
+		<result property="memberDTO.id" column="writer" />
+	</resultMap>
+
+	<!-- 컨텐츠 댓글 페이지로 전체보기 -->
+	<select id="contentsCommentList" resultMap="contentListMap" parameterType="hashmap">
+		SELECT rno, reply, posted_time, cno, writer
+		FROM (SELECT rno, reply, to_char(posted_time,'YYYY.MM.DD') as posted_time, cno, writer, CEIL(rownum/9) page
+			  FROM (SELECT rno, reply, posted_time, cno, writer
+			  		FROM contents_comment
+					WHERE cno = #{cno}
+					ORDER BY rno DESC))
+		WHERE page = #{replyPageNo}
+	</select>
+
+	<!-- 컨텐츠 댓글 총 갯수를 가져오기 위한 쿼리문 -->
+	<select id="totalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM contents_comment
+		WHERE cno=#{value}
+	</select>
+	
+	<!-- 컨텐츠 댓글달기 -->
+	<insert id="contentsCommentWrite" parameterType="c_comment">
+		<selectKey keyProperty="rno" resultType="int" order="BEFORE">
+			SELECT contents_comment_seq.nextVal FROM dual
+		</selectKey>
+		INSERT INTO contents_comment(rno, reply, posted_time, cno, writer)
+		VALUES(#{rno}, #{reply}, sysdate, #{cno}, #{memberDTO.id})
+	</insert>
+
+	<!-- 컨텐츠 댓글삭제 -->
+	<delete id="contentsCommentDelete" parameterType="_int">
+		DELETE FROM contents_comment
+		WHERE rno=#{value}
+	</delete>
+	
+	    <!-- hits 감소 쿼리문 -->
+	<update id="decreaseHits" parameterType="_int">
+		UPDATE contents
+		SET hits = hits - 1
+		WHERE cno=#{value}
+	</update>
+</mapper>

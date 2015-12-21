@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.1.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<!-- HandlerMapping / ViewResolver -->
+	<bean id="handlerMapping" class="org.springframework.web.servlet.handler.BeanNameUrlHandlerMapping"/>
+	<bean id="viewResolver" class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<property name="prefix" value=""/>
+		<property name="suffix" value=".jsp"/>
+		<property name="order" value="1"/>
+	</bean>
+	
+	<!-- 아작스를 쓰기위해서 beanNameViewResolver, JsonView 있어야한다. -->
+	<bean name="beanNameViewResolver" class="org.springframework.web.servlet.view.BeanNameViewResolver">
+		<property name="order" value="0"/>
+	</bean>
+	
+	<bean name="JsonView" class="org.springframework.web.servlet.view.json.MappingJacksonJsonView"></bean>
+	
+	<!-- BeanNameViewResolver / AJAX / JSON etc.. -->
+	<bean id="multipartResolver" class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+		<property name="defaultEncoding" value="UTF-8"/>
+		<property name="maxUploadSize" value="-1"/>
+	</bean>
+	
+	<!-- For MailService -->
+   <bean id="mailServiceManager" class="team.project.holosolo.util.MailServiceManager">
+      <property name="prop">
+         <props>
+            <!-- Google을 사용한다. 이 경우, naver를 이용한다. -->
+            <prop key="mail.smtp.user">jkjkjk1006</prop>
+            
+            <!-- SMTP 서버의 정보를 설정한다. 우리의 경우에는 해당 서버 제작을 배우지 않았으므로 naver 혹은 google로 대체한다. -->
+            <prop key="mail.smtp.host">smtp.naver.com</prop>
+            
+            <!-- 아래부터는 정보가 동일하다고 한다. 우선 하나씩 뜯어볼 예정. -->
+            <prop key="mail.smtp.port">465</prop>
+            <prop key="mail.smtp.starttls.enable">true</prop>
+            <prop key="mail.smtp.auth">true</prop>
+            <prop key="mail.smtp.debug">true</prop>
+            <prop key="mail.smtp.socketFactory.port">465</prop>
+            <prop key="mail.smtp.socketFactory.class">javax.net.ssl.SSLSocketFactory</prop>
+            <prop key="mail.smtp.socketFactory.fallback">false</prop>
+         </props>
+      </property>
+   </bean>
+	
+	<!-- User Definition Bean Controllers -->
+		<bean id="methodNameResolver" class="org.springframework.web.servlet.mvc.multiaction.ParameterMethodNameResolver">
+		<property name="paramName" value="command"/>
+	</bean>
+	
+	<bean name="/main.do" class="team.project.holosolo.controller.MainController">
+		<property name="methodNameResolver" ref="methodNameResolver"/>
+		<property name="contentService" ref="contentService"/>
+		<property name="groupService" ref="groupService"/>
+		<property name="shareTipService" ref="shareTipService"/>
+	</bean>
+	
+	<bean name="/member.do" class="team.project.holosolo.controller.MemberController">
+		<property name="methodNameResolver" ref="methodNameResolver"/>
+		<property name="memberService" ref="memberService"/>
+		<property name="imgPath">
+				<value>C:\\PerfLogs\\team\\eclipse\\finalProjectWorkspace\\Final_TeamProject_HoloSolo\\src\\main\\webapp\\resources\\uploadImg\\memberImg\\</value>
+		</property>
+		<property name="mailServiceManager" ref="mailServiceManager"/>
+	</bean>
+	
+	<bean name="/content.do" class="team.project.holosolo.controller.ContentController">
+		<property name="methodNameResolver" ref="methodNameResolver"/>
+		<property name="contentService" ref="contentService"/>
+		<property name="contentCommentService" ref="contentCommentService"/>
+	</bean>
+	
+	<bean name="/share.do" class="team.project.holosolo.controller.ShareTipController">
+		<property name="methodNameResolver" ref="methodNameResolver"/>
+		<property name="shareTipService" ref="shareTipService"/>
+		<property name="shareTipCommentService" ref="shareTipCommentService"/>
+	</bean>
+	
+	<bean name="/group.do" class="team.project.holosolo.controller.GroupController">
+		<property name="methodNameResolver" ref="methodNameResolver"/>
+		<property name="groupService" ref="groupService"/>
+		<property name="groupCommentService" ref="groupCommentService"/>
+	</bean>
+	
+	<bean name="/uploadFile.do" class="team.project.holosolo.controller.UploadFileController">
+		<property name="imgPath">
+			<value>C:\\PerfLogs\\team\\eclipse\\finalProjectWorkspace\\Final_TeamProject_HoloSolo\\src\\main\\webapp\\resources\\uploadImg\\</value>
+		</property>
+		<property name="methodNameResolver" ref="methodNameResolver"/>
+	</bean>
+	<!-- 추가 됨. -->
+   	<!-- 아래의 컨트롤러는 서버가 실행 시, 단 한 번 호출되는 컨트롤러이다. 이 호출은 쓰레드 on하고, on된 쓰레드는 1일마다 날짜를 체크한다. -->
+  	<bean id="checkDateThread" class="team.project.holosolo.util.CheckDateThread">
+      <property name="groupService" ref="groupService"/>
+  	</bean>
+   	<bean class="team.project.holosolo.controller.CheckDateController" init-method="init">
+      <property name="checkDateThread" ref="checkDateThread"/>
+   	</bean>
+
+
+	<!-- AOP -->
+	<bean id="myPageAspect" class="team.project.holosolo.advice.MyPageAspect">
+		<property name="contentService" ref="contentService" />
+		<property name="groupService" ref="groupService" />
+		<property name="shareTipService" ref="shareTipService" />
+	</bean>
+	<aop:config>
+		<aop:pointcut expression="bean(/group.do)" id="myPagePointCut2" />
+		<aop:pointcut expression="bean(/share.do)" id="myPagePointCut3" />
+		<aop:pointcut expression="bean(/main.do)" id="myPagePointCut4" />
+		<aop:aspect id="myPageAdvice" ref="myPageAspect">
+			<aop:pointcut expression="bean(/content.do)" id="myPagePointCut1" />
+			<aop:around method="showMyActivity" pointcut-ref="myPagePointCut1" />
+			<aop:around method="showMyActivity" pointcut-ref="myPagePointCut2" />
+			<aop:around method="showMyActivity" pointcut-ref="myPagePointCut3" />
+			<aop:around method="showMyActivity" pointcut-ref="myPagePointCut4" />
+		</aop:aspect>
+	</aop:config>
+</beans>

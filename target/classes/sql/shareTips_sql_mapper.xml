@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+ "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="ShareTips">
+	<!-- 11월 18일 수요일 filename result 추가됨. -->
+	<resultMap type="shareTip" id="shareMap">
+		<result property="sno" column="sno" />
+		<result property="title" column="title" />
+		<result property="content" column="content" />
+		<result property="category" column="category" />
+		<result property="postedTime" column="posted_time" />
+		<result property="hits" column="hits" />
+		<result property="memberDTO.id" column="writer" />
+		<result property="fileName" column="filename" />
+	</resultMap>
+
+	<insert id="sharePost" parameterType="shareTip">
+		<selectKey keyProperty="sno" resultType="_int" order="BEFORE">
+			SELECT
+			sharetips_seq.nextVal FROM dual
+		</selectKey>
+		INSERT INTO sharetips(sno, title, content, category, posted_time,
+		hits, writer, filename)
+		VALUES(#{sno}, #{title}, #{content},
+		#{category}, SYSDATE, 0, #{memberDTO.id}, #{fileName})
+	</insert>
+
+	<!-- 수정된 부분 filename 추가됨. 11월 18일 수요일. -->
+	<select id="shareShowDetail" parameterType="string" resultMap="shareMap">
+		SELECT sno, title, content, category, to_char(posted_time,'YYYY.MM.DD') as posted_time, hits, writer,
+		filename
+		FROM sharetips
+		WHERE sno=#{value}
+	</select>
+	
+	<!-- 12.8 리스트 수정 -->
+	<select id="shareList" resultMap="shareMap" parameterType="hashmap">
+		SELECT sno, title, category, posted_time, hits, writer, filename
+		FROM (SELECT sno, title, category, posted_time, hits, writer, filename, CEIL(rownum/10) AS page
+			  FROM (SELECT sno, title, category, to_char(posted_time, 'YYYY.MM.DD') AS posted_time, 
+			  		hits, writer, filename
+			  		FROM sharetips
+					<where>
+						<if test="category != null">
+							category = #{category}
+						</if>
+					</where>
+					ORDER BY sno DESC))
+		WHERE page=#{pageNo}
+	</select>
+	
+	<!-- 추천 -->
+	<insert id="shareRecommend" parameterType="hashmap">
+		INSERT INTO
+		recommend_sharetips(id, sno)
+		VALUES(#{id}, #{sno})
+	</insert>
+
+	<!-- 추천 수 -->
+	<select id="shareRecommendCount" parameterType="string" resultType="string">
+		SELECT id
+		FROM recommend_sharetips
+		WHERE sno = #{value}
+	</select>
+	
+	<!-- 12.8 추가 -->
+	<select id="shareSearch" resultMap="shareMap" parameterType="hashmap">
+		SELECT sno, title, category, posted_time, hits, writer, filename
+		FROM (SELECT sno, title, category, posted_time, hits, writer, filename, CEIL(rownum/10) AS page
+			  FROM (SELECT sno, title, category, to_char(posted_time, 'YYYY.MM.DD') AS posted_time, hits, writer, filename
+			  		FROM sharetips
+					<where>
+						<if test="category != null">
+							category LIKE #{category} AND
+						</if>
+						<if test="word != null">
+							<if test="sort == 'content'">   <!-- 내용으로 검색 -->
+								content LIKE '%' || #{word} || '%'
+							</if>
+							<if test="sort == 'writer'">   <!-- 작성자로 검색 -->
+								writer LIKE #{word}
+							</if>
+							<if test="sort == 'title'">   <!-- 제목으로 검색 -->
+								title LIKE  '%' || #{word} || '%'
+							</if>
+						</if>
+					</where>
+					ORDER BY sno DESC))
+		WHERE page = #{pageNo}
+	</select>
+
+	<update id="shareUpdate" parameterType="shareTip">
+		UPDATE sharetips
+		set title=#{title}, content=#{content}, filename=#{fileName} ,category=#{category}
+		where sno=#{sno}
+	</update>
+
+	<delete id="shareDelete" parameterType="string">
+		DELETE FROM sharetips WHERE sno=#{value}
+	</delete>
+	
+	<!-- hits 증가 쿼리문 -->
+   <update id="updateHits" parameterType="_int">
+      UPDATE sharetips
+      SET hits = hits + 1
+      WHERE sno=#{value}
+   </update>
+   
+   	<!-- 추가 :: 12월 09일 수정 -->
+	<select id="myActivityShare" parameterType="hashmap" resultMap="shareMap">
+		SELECT sno, title, category, posted_time, hits, writer, filename
+		FROM (SELECT sno, title, category, posted_time, hits, writer, filename,  CEIL(rownum/10) AS page
+			  FROM (SELECT sno, title, category, to_char(posted_time,'YYYY.MM.DD') as posted_time, hits, writer, filename
+			  		FROM sharetips	
+			  			<where>
+			  				<if test="id != null">
+			  					writer = #{id}
+			  				</if>
+			  			</where>
+			  			ORDER BY sno DESC))
+		WHERE page=#{pageNo}
+	</select>
+	
+	<!-- 12.10 수정  -->
+	<!-- 추가 :: 12월 03일 목요일 -->
+	<select id="getSListByRecommend" parameterType="hashmap" resultType="string">
+		SELECT sno
+		FROM (SELECT sno, CEIL(rownum/10) AS page
+			  FROM (SELECT sno
+					FROM recommend_sharetips
+					<where>
+						<if test="id != null">
+							id = #{id}
+						</if>
+					</where>
+					ORDER BY sno DESC))
+		WHERE page=#{pageNo}
+	</select>
+   
+   	<select id="shareBySno" parameterType="string" resultMap="shareMap">
+		SELECT sno, title, content, category, to_char(posted_time,'YYYY.MM.DD') as posted_time, hits, writer,
+		filename
+		FROM sharetips
+		WHERE sno=#{value}
+	</select>
+	
+	<!-- 추가 : 12.07 -->
+   	<select id="totalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM sharetips
+		<where>
+			<if test="value != null">
+				category=#{value} 
+			</if>
+		</where>  
+	</select>
+	
+	<!-- 12.11 수정 -->
+	<select id="showShareListInDetail" parameterType="hashmap" resultType="hashmap">
+		SELECT * FROM(
+			SELECT lead(sno, 2) over (order by sno asc) as bbsno,
+				lead(sno, 1) over (order by sno asc) as bsno,
+				sno, 
+				lag(sno, 2) over (order by sno asc) as asno,
+				lag(sno, 1) over (order by sno asc) as aasno
+			FROM ( SELECT * FROM sharetips ORDER BY sno asc)
+			<where>
+				<if test="category != null">
+					category = #{category}
+				</if>
+			</where>
+			ORDER BY sno DESC
+		)
+		WHERE sno = #{sno}
+	</select>
+	
+	<!-- 12.09 추가 -->
+	<select id="myTotalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM sharetips
+		<where>
+			<if test="value != null">
+				writer=#{id} 
+			</if>
+		</where>  
+	</select>
+	
+	<!-- 12.09 추가 -->
+	<select id="searchTotalCount" parameterType="hashmap" resultType="int">
+		SELECT COUNT(-1) 
+		FROM sharetips
+		<where>
+			<if test="category != null">
+				category LIKE #{category} AND
+			</if>
+			<if test="word != null">
+				<if test="sort == 'content'">   <!-- 내용으로 검색 -->
+					content LIKE '%' || #{word} || '%'
+				</if>
+				<if test="sort == 'writer'">   <!-- 작성자로 검색 -->
+					writer LIKE #{word}
+				</if>
+				<if test="sort == 'title'">   <!-- 제목으로 검색 -->
+					title LIKE  '%' || #{word} || '%'
+				</if>
+			</if>
+		</where>
+	</select>
+	
+	<select id="myRecommandTotalCount" parameterType="string" resultType="int">
+		SELECT COUNT(-1) 
+		FROM recommend_sharetips
+		<where>
+			<if test="value != null">
+				id=#{value} 
+			</if>
+		</where>  
+	</select>
+</mapper>
